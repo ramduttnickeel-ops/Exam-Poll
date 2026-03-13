@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Ultra Zombanie Survival V7</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="startScreen">
+    <h1 id="gameTitle">ULTRA ZOMBIE SURVIVAL</h1>
+    <input type="text" id="playerName" placeholder="Enter your name">
+    <div id="startButtons">
+        <button id="startBtn">Start Game</button>
+        <button id="guestBtn">Play as Guest</button>
+    </div>
+    <canvas id="startBg"></canvas>
+</div>
+
+<div id="ui">
+    <span id="playerLabel"></span> | Health: <span id="health">100</span> | Wave: <span id="wave">1</span> | Kills: <span id="kills">0</span> | Time: <span id="time">0</span>s
+    <div id="powerups"></div>
+</div>
+
+<canvas id="game"></canvas>
+
+<div id="scoreboard">
+    <h2>Scoreboard</h2>
+    <table>
+        <thead><tr><th>Name</th><th>Wave</th><th>Kills</th><th>Time (s)</th></tr></thead>
+        <tbody id="scoresTable"></tbody>
+    </table>
+    <button id="restartBtn">Play Again</button>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
