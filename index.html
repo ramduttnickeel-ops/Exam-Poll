@@ -1,38 +1,151 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Ultra Zombanie Survival V7</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ultra Zombie Survival: Rebuilt</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
+  <canvas id="game"></canvas>
 
-<div id="startScreen">
-    <h1 id="gameTitle">ULTRA ZOMBIE SURVIVAL</h1>
-    <input type="text" id="playerName" placeholder="Enter your name">
-    <div id="startButtons">
-        <button id="startBtn">Start Game</button>
-        <button id="guestBtn">Play as Guest</button>
+  <div id="hud">
+    <div class="hud-panel">
+      <div class="hud-top">
+        <div class="pill"><strong id="hudName">Guest</strong></div>
+        <div class="pill">Wave <strong id="hudWave">1</strong></div>
+        <div class="pill">Kills <strong id="hudKills">0</strong></div>
+        <div class="pill">Score <strong id="hudScore">0</strong></div>
+        <div class="pill">Time <strong id="hudTime">0s</strong></div>
+      </div>
+      <div class="bars">
+        <div class="bar-wrap">
+          <div class="bar-head"><span>Health</span><span id="healthText">100 / 100</span></div>
+          <div class="bar"><span id="healthFill"></span></div>
+        </div>
+        <div class="bar-wrap">
+          <div class="bar-head"><span>Stamina</span><span id="staminaText">100 / 100</span></div>
+          <div class="bar"><span id="staminaFill"></span></div>
+        </div>
+        <div class="bar-wrap" id="bossBarWrap" style="display:none;">
+          <div class="bar-head"><span>Boss</span><span id="bossText">0 / 0</span></div>
+          <div class="bar"><span id="bossFill"></span></div>
+        </div>
+      </div>
     </div>
-    <canvas id="startBg"></canvas>
-</div>
 
-<div id="ui">
-    <span id="playerLabel"></span> | Health: <span id="health">100</span> | Wave: <span id="wave">1</span> | Kills: <span id="kills">0</span> | Time: <span id="time">0</span>s
-    <div id="powerups"></div>
-</div>
+    <div class="hud-right">
+      <div class="hud-panel">
+        <div><strong>Loadout</strong></div>
+        <div class="weapon-line"><span>Weapon</span><strong id="weaponText">Pistol</strong></div>
+        <div class="weapon-line"><span>Fire Mode</span><strong id="weaponHint">Balanced</strong></div>
+        <div class="weapon-line"><span>Controls</span><span class="muted">1 / 2 / 3 to swap</span></div>
+      </div>
+      <div class="hud-panel">
+        <div><strong>Active Boosts</strong></div>
+        <div class="active-buffs" id="buffs"></div>
+      </div>
+    </div>
+  </div>
 
-<canvas id="game"></canvas>
+  <div id="announcer">
+    <div class="banner">
+      <div class="small" id="announceTop">Incoming</div>
+      <div class="big" id="announceMain">Wave 1</div>
+    </div>
+  </div>
 
-<div id="scoreboard">
-    <h2>Scoreboard</h2>
-    <table>
-        <thead><tr><th>Name</th><th>Wave</th><th>Kills</th><th>Time (s)</th></tr></thead>
-        <tbody id="scoresTable"></tbody>
-    </table>
-    <button id="restartBtn">Play Again</button>
-</div>
+  <div class="overlay" id="startScreen">
+    <div class="panel">
+      <div class="panel-main">
+        <h1 class="title">Ultra Zombie<br>Survival</h1>
+        <div class="glow-bar"></div>
+        <p class="subtitle">
+          This rebuild fixes the broken map logic, stops zombies from living inside walls, makes combat more satisfying,
+          adds weapon swapping, sprinting, pickups, bosses, particles, screen shake, a minimap, a leaderboard, and a much richer neon-horror feel.
+        </p>
+        <div class="row" style="margin-top:24px;">
+          <input id="playerName" type="text" maxlength="18" placeholder="Enter your survivor name">
+        </div>
+        <div class="row" style="margin-top:14px;">
+          <button id="startBtn">Start Game</button>
+          <button id="guestBtn" class="secondary">Play as Guest</button>
+        </div>
+        <div class="tips">
+          <div class="tip"><strong>Shooting feels better:</strong> pistol, SMG, and shotgun each play differently, with punchier hit effects and wave pacing.</div>
+          <div class="tip"><strong>Movement is safer:</strong> collision uses your actual body size, and the map always starts with a reachable safe zone.</div>
+          <div class="tip"><strong>Zombies are smarter:</strong> they follow a live path grid, so they route around walls instead of getting permanently stuck.</div>
+        </div>
+      </div>
+      <div class="panel-side">
+        <h3 style="margin-bottom:12px;">Controls</h3>
+        <div class="controls">
+          <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span>
+          <span class="key">Shift</span>
+          <span class="key">1</span><span class="key">2</span><span class="key">3</span>
+          <span class="key">Esc</span>
+        </div>
+        <div class="legend">
+          <div class="legend-item"><strong>Move:</strong> WASD</div>
+          <div class="legend-item"><strong>Aim:</strong> mouse</div>
+          <div class="legend-item"><strong>Shoot:</strong> hold left click</div>
+          <div class="legend-item"><strong>Sprint:</strong> hold Shift</div>
+          <div class="legend-item"><strong>Swap weapons:</strong> 1 Pistol, 2 SMG, 3 Shotgun</div>
+          <div class="legend-item"><strong>Pause:</strong> Esc</div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-<script src="script.js"></script>
+  <div class="overlay" id="pauseOverlay">
+    <div class="panel">
+      <div class="panel-main" style="border-right:0;">
+        <h2 style="font-size:clamp(2rem,4vw,3.2rem); text-transform:uppercase; letter-spacing:0.08em;">Paused</h2>
+        <div class="glow-bar"></div>
+        <p class="subtitle">Catch your breath. Press <strong>Esc</strong> to jump back in.</p>
+        <div class="footer-row">
+          <button id="resumeBtn">Resume</button>
+          <button id="restartFromPauseBtn" class="secondary">Restart</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="gameOver">
+    <div class="panel">
+      <div class="panel-main" style="border-right:0;">
+        <h2 style="font-size:clamp(2rem,4vw,3.2rem); text-transform:uppercase; letter-spacing:0.08em;">Run Over</h2>
+        <div class="glow-bar"></div>
+        <p class="subtitle">You fought hard. Your score has been saved to the local leaderboard.</p>
+        <div class="stats-grid">
+          <div class="stat-box"><div class="label">Wave</div><div class="value" id="finalWave">1</div></div>
+          <div class="stat-box"><div class="label">Kills</div><div class="value" id="finalKills">0</div></div>
+          <div class="stat-box"><div class="label">Score</div><div class="value" id="finalScore">0</div></div>
+          <div class="stat-box"><div class="label">Time</div><div class="value" id="finalTime">0s</div></div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Wave</th>
+              <th>Kills</th>
+              <th>Score</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="scoreRows"></tbody>
+        </table>
+        <div class="footer-row">
+          <button id="restartBtn">Play Again</button>
+          <button id="menuBtn" class="secondary">Main Menu</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  
+  <script src="script.js"></script>
 </body>
 </html>
