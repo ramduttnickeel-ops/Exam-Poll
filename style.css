@@ -552,8 +552,8 @@ tr:last-child td {
 #mobilePause {
   top: 14px;
   right: 14px;
-  width: 54px;
-  height: 54px;
+  width: 52px;
+  height: 52px;
   border-radius: 16px;
   font-size: 1rem;
   padding: 0;
@@ -569,8 +569,8 @@ tr:last-child td {
 }
 
 .weapon-btn {
-  width: 54px;
-  height: 54px;
+  width: 52px;
+  height: 52px;
   border-radius: 16px;
   padding: 0;
   font-size: 0.9rem;
@@ -584,19 +584,19 @@ tr:last-child td {
 
 .joystick {
   position: fixed;
-  bottom: 26px;
-  width: 150px;
-  height: 150px;
+  bottom: 18px;
+  width: 122px;
+  height: 122px;
   z-index: 11;
   touch-action: none;
 }
 
 #leftJoystick {
-  left: 18px;
+  left: 12px;
 }
 
 #rightPad {
-  right: 18px;
+  right: 12px;
 }
 
 .joy-base {
@@ -612,10 +612,10 @@ tr:last-child td {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 62px;
-  height: 62px;
-  margin-left: -31px;
-  margin-top: -31px;
+  width: 52px;
+  height: 52px;
+  margin-left: -26px;
+  margin-top: -26px;
   border-radius: 50%;
   background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.22), rgba(98, 238, 255, 0.22));
   border: 1px solid rgba(255,255,255,0.18);
@@ -633,31 +633,17 @@ tr:last-child td {
 
 .joy-label {
   position: absolute;
-  bottom: -20px;
+  bottom: -18px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   letter-spacing: 0.14em;
   color: rgba(223, 251, 255, 0.8);
   text-transform: uppercase;
 }
 
 #mobileFire {
-  right: 34px;
-  bottom: 196px;
-  width: 84px;
-  height: 84px;
-  border-radius: 50%;
-  font-size: 1rem;
-  padding: 0;
-  background: rgba(76, 29, 29, 0.78);
-  border-color: rgba(255, 120, 120, 0.25);
-  box-shadow: 0 0 18px rgba(255, 80, 80, 0.18);
-}
-
-#mobileFire.active {
-  background: rgba(120, 36, 36, 0.92);
-  box-shadow: 0 0 24px rgba(255, 80, 80, 0.32);
+  display: none !important;
 }
 
 @media (max-width: 960px) {
@@ -678,40 +664,80 @@ tr:last-child td {
 @media (max-width: 820px), (pointer: coarse) {
   #topStats {
     top: 8px;
-    width: calc(100vw - 18px);
+    width: calc(100vw - 16px);
     gap: 6px;
-    padding: 8px;
+    padding: 7px;
+    background: rgba(7, 14, 24, 0.44);
   }
 
   .stat-pill {
-    font-size: 0.72rem;
-    padding: 5px 8px;
+    font-size: 0.7rem;
+    padding: 4px 7px;
+    gap: 6px;
   }
 
   .stat-pill span {
-    font-size: 0.66rem;
+    font-size: 0.62rem;
   }
 
   .boss-wrap {
-    top: 64px;
-    width: calc(100vw - 22px);
+    top: 60px;
+    width: calc(100vw - 18px);
+  }
+
+  .boss-card {
+    padding: 8px 10px;
+    border-radius: 14px;
+  }
+
+  .boss-head {
+    font-size: 0.68rem;
+    margin-bottom: 5px;
+  }
+
+  .boss-bar {
+    height: 9px;
   }
 
   #announcer {
-    top: 110px;
-    width: calc(100vw - 24px);
+    top: 102px;
+    width: calc(100vw - 22px);
+  }
+
+  #announcer .banner {
+    padding: 11px 12px;
   }
 
   #vitalsHud {
-    left: 12px;
-    bottom: 186px;
-    width: min(250px, calc(100vw - 24px));
+    left: 10px;
+    bottom: 152px;
+    width: 158px;
+    padding: 8px 9px;
+    background: rgba(7, 14, 24, 0.42);
+    border-radius: 14px;
   }
 
   #loadoutHud {
-    right: 12px;
-    bottom: 186px;
-    width: min(240px, calc(100vw - 24px));
+    display: none;
+  }
+
+  .hud-card-title {
+    font-size: 0.62rem;
+    margin-bottom: 7px;
+  }
+
+  .bar-group {
+    gap: 4px;
+    margin-bottom: 7px;
+  }
+
+  .bar-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.06em;
+  }
+
+  .bar {
+    height: 7px;
   }
 
   .panel {
@@ -726,56 +752,64 @@ tr:last-child td {
 }
 
 @media (max-width: 640px), (pointer: coarse) {
-  #vitalsHud,
-  #loadoutHud {
-    width: calc(50vw - 16px);
-    bottom: 162px;
-    padding: 10px 11px;
+  #topStats {
+    gap: 5px;
+    padding: 6px;
   }
 
-  .hud-card-title {
-    font-size: 0.68rem;
+  .stat-pill {
+    font-size: 0.66rem;
+    padding: 4px 6px;
   }
 
-  .bar-label,
-  .load-line {
-    font-size: 0.72rem;
+  .stat-pill span {
+    font-size: 0.58rem;
   }
 
-  #leftJoystick,
-  #rightPad {
-    width: 128px;
-    height: 128px;
-    bottom: 18px;
+  #vitalsHud {
+    left: 8px;
+    bottom: 144px;
+    width: 146px;
+    padding: 7px 8px;
+  }
+
+  .joystick {
+    width: 116px;
+    height: 116px;
+    bottom: 12px;
   }
 
   #leftJoystick {
-    left: 12px;
+    left: 8px;
   }
 
   #rightPad {
-    right: 12px;
+    right: 8px;
   }
 
   .joy-stick {
-    width: 54px;
-    height: 54px;
-    margin-left: -27px;
-    margin-top: -27px;
-  }
-
-  #mobileFire {
-    width: 76px;
-    height: 76px;
-    right: 24px;
-    bottom: 164px;
+    width: 48px;
+    height: 48px;
+    margin-left: -24px;
+    margin-top: -24px;
   }
 
   #mobilePause,
   .weapon-btn {
-    width: 48px;
-    height: 48px;
+    width: 46px;
+    height: 46px;
     border-radius: 14px;
+  }
+
+  #mobileWeapons {
+    gap: 6px;
+    left: 8px;
+    top: 8px;
+  }
+
+  #mobilePause {
+    top: 8px;
+    right: 8px;
   }
 }
 
@@ -793,12 +827,7 @@ tr:last-child td {
   }
 
   #vitalsHud {
-    left: 10px;
-    width: calc(52vw - 12px);
-  }
-
-  #loadoutHud {
-    right: 10px;
-    width: calc(48vw - 12px);
+    width: 138px;
+    bottom: 140px;
   }
 }

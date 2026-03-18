@@ -41,7 +41,6 @@ const leftJoystick = document.getElementById("leftJoystick");
 const rightPad = document.getElementById("rightPad");
 const leftStickEl = document.getElementById("leftStick");
 const rightStickEl = document.getElementById("rightStick");
-const mobileFireBtn = document.getElementById("mobileFire");
 const mobilePauseBtn = document.getElementById("mobilePause");
 const weaponButtons = document.querySelectorAll(".weapon-btn");
 
@@ -112,7 +111,6 @@ const input = {
   mouseY: window.innerHeight * 0.5,
   mouseDown: false,
   mobileFire: false,
-  fireButtonHeld: false,
   leftStick: {
     active: false,
     id: null,
@@ -505,7 +503,6 @@ function queueWave(waveNumber) {
 
 function resetTouchControls() {
   input.mobileFire = false;
-  input.fireButtonHeld = false;
 
   input.leftStick.active = false;
   input.leftStick.id = null;
@@ -519,7 +516,6 @@ function resetTouchControls() {
 
   leftStickEl.style.transform = "translate(0px, 0px)";
   rightStickEl.style.transform = "translate(0px, 0px)";
-  mobileFireBtn.classList.remove("active");
 }
 
 function resetGame() {
@@ -753,7 +749,7 @@ function shootWeapon() {
   const player = game.player;
   if (!player || player.fireCooldown > 0) return;
 
-  const wantsFire = input.mouseDown || input.mobileFire || input.fireButtonHeld || input.rightStick.active;
+  const wantsFire = input.mouseDown || input.mobileFire || input.rightStick.active;
   if (!wantsFire) return;
 
   const weapon = WEAPONS[player.weapon];
@@ -1741,9 +1737,9 @@ function drawCrosshair() {
 function drawMinimap() {
   if (!game.player) return;
 
-  const size = IS_TOUCH ? 112 : Math.min(180, Math.max(128, cw * 0.13));
+  const size = IS_TOUCH ? 108 : Math.min(180, Math.max(128, cw * 0.13));
   const x = cw - size - 12;
-  const y = IS_TOUCH ? 74 : 14;
+  const y = IS_TOUCH ? 68 : 14;
   const sx = size / WORLD_W;
   const sy = size / WORLD_H;
 
@@ -1869,33 +1865,12 @@ mobilePauseBtn.addEventListener("touchstart", (e) => {
   if (game.state !== "start") togglePause();
 }, { passive: false });
 
-mobileFireBtn.addEventListener("touchstart", (e) => {
-  e.preventDefault();
-  input.fireButtonHeld = true;
-  input.mobileFire = true;
-  mobileFireBtn.classList.add("active");
-}, { passive: false });
-
-mobileFireBtn.addEventListener("touchend", (e) => {
-  e.preventDefault();
-  input.fireButtonHeld = false;
-  input.mobileFire = input.rightStick.active;
-  mobileFireBtn.classList.remove("active");
-}, { passive: false });
-
-mobileFireBtn.addEventListener("touchcancel", (e) => {
-  e.preventDefault();
-  input.fireButtonHeld = false;
-  input.mobileFire = input.rightStick.active;
-  mobileFireBtn.classList.remove("active");
-}, { passive: false });
-
 function setStickVisual(stickEl, x, y, maxRadius) {
   stickEl.style.transform = `translate(${x * maxRadius}px, ${y * maxRadius}px)`;
 }
 
 function setupVirtualStick(zoneEl, stickEl, stickState, onUpdate) {
-  const maxRadius = 38;
+  const maxRadius = 34;
 
   function getLocalPos(touch) {
     const rect = zoneEl.getBoundingClientRect();
@@ -1967,7 +1942,7 @@ function setupVirtualStick(zoneEl, stickEl, stickState, onUpdate) {
 setupVirtualStick(leftJoystick, leftStickEl, input.leftStick, null);
 
 setupVirtualStick(rightPad, rightStickEl, input.rightStick, (active) => {
-  input.mobileFire = active || input.fireButtonHeld;
+  input.mobileFire = active;
 });
 
 buildMap();
