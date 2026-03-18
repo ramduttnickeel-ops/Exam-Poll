@@ -2,50 +2,70 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ultra Zombie Survival: Rebuilt</title>
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+  />
+  <title>Ultra Zombie Survival: Final Upgrade</title>
   <link rel="stylesheet" href="style.css" />
 </head>
-
 <body>
   <canvas id="game"></canvas>
 
   <div id="hud">
-    <div class="hud-panel">
-      <div class="hud-top">
-        <div class="pill"><strong id="hudName">Guest</strong></div>
-        <div class="pill">Wave <strong id="hudWave">1</strong></div>
-        <div class="pill">Kills <strong id="hudKills">0</strong></div>
-        <div class="pill">Score <strong id="hudScore">0</strong></div>
-        <div class="pill">Time <strong id="hudTime">0s</strong></div>
-      </div>
-      <div class="bars">
-        <div class="bar-wrap">
-          <div class="bar-head"><span>Health</span><span id="healthText">100 / 100</span></div>
-          <div class="bar"><span id="healthFill"></span></div>
+    <div id="topStats" class="hud-card hud-strip">
+      <div class="stat-pill"><span>Name</span><strong id="hudName">Guest</strong></div>
+      <div class="stat-pill"><span>Wave</span><strong id="hudWave">1</strong></div>
+      <div class="stat-pill"><span>Kills</span><strong id="hudKills">0</strong></div>
+      <div class="stat-pill"><span>Score</span><strong id="hudScore">0</strong></div>
+      <div class="stat-pill"><span>Time</span><strong id="hudTime">0s</strong></div>
+      <div class="stat-pill combo-pill"><span>Combo</span><strong id="hudCombo">x1.0</strong></div>
+    </div>
+
+    <div id="bossBarWrap" class="boss-wrap" style="display:none;">
+      <div class="boss-card">
+        <div class="boss-head">
+          <span>Boss</span>
+          <span id="bossText">0 / 0</span>
         </div>
-        <div class="bar-wrap">
-          <div class="bar-head"><span>Stamina</span><span id="staminaText">100 / 100</span></div>
-          <div class="bar"><span id="staminaFill"></span></div>
-        </div>
-        <div class="bar-wrap" id="bossBarWrap" style="display:none;">
-          <div class="bar-head"><span>Boss</span><span id="bossText">0 / 0</span></div>
-          <div class="bar"><span id="bossFill"></span></div>
+        <div class="boss-bar">
+          <span id="bossFill"></span>
         </div>
       </div>
     </div>
 
-    <div class="hud-right">
-      <div class="hud-panel">
-        <div><strong>Loadout</strong></div>
-        <div class="weapon-line"><span>Weapon</span><strong id="weaponText">Pistol</strong></div>
-        <div class="weapon-line"><span>Fire Mode</span><strong id="weaponHint">Balanced</strong></div>
-        <div class="weapon-line"><span>Controls</span><span class="muted">1 / 2 / 3 to swap</span></div>
+    <div id="vitalsHud" class="hud-card">
+      <div class="hud-card-title">Vitals</div>
+
+      <div class="bar-group">
+        <div class="bar-label">
+          <span>Health</span>
+          <span id="healthText">100 / 100</span>
+        </div>
+        <div class="bar health-bar">
+          <span id="healthFill"></span>
+        </div>
       </div>
-      <div class="hud-panel">
-        <div><strong>Active Boosts</strong></div>
-        <div class="active-buffs" id="buffs"></div>
+
+      <div class="bar-group">
+        <div class="bar-label">
+          <span>Stamina</span>
+          <span id="staminaText">100 / 100</span>
+        </div>
+        <div class="bar stamina-bar">
+          <span id="staminaFill"></span>
+        </div>
       </div>
+    </div>
+
+    <div id="loadoutHud" class="hud-card">
+      <div class="hud-card-title">Loadout</div>
+      <div class="load-line"><span>Weapon</span><strong id="weaponText">Pistol</strong></div>
+      <div class="load-line"><span>Mode</span><strong id="weaponHint">Balanced</strong></div>
+      <div class="load-line"><span>Swap</span><span class="muted">1 / 2 / 3 or tap buttons</span></div>
+
+      <div class="buff-title">Boosts</div>
+      <div class="active-buffs" id="buffs"></div>
     </div>
   </div>
 
@@ -59,25 +79,30 @@
   <div class="overlay" id="startScreen">
     <div class="panel">
       <div class="panel-main">
-        <h1 class="title">Ultra Zombie<br>Survival</h1>
+        <h1 class="title">Ultra Zombie<br />Survival</h1>
         <div class="glow-bar"></div>
         <p class="subtitle">
-          This rebuild fixes the broken map logic, stops zombies from living inside walls, makes combat more satisfying,
-          adds weapon swapping, sprinting, pickups, bosses, particles, screen shake, a minimap, a leaderboard, and a much richer neon-horror feel.
+          Final upgraded build with mobile controls, a cleaner HUD, smarter boss pathing,
+          boss dash recovery, combo scoring, stronger pressure visuals, and general polish
+          to make the whole run feel more intense and more alive.
         </p>
+
         <div class="row" style="margin-top:24px;">
-          <input id="playerName" type="text" maxlength="18" placeholder="Enter your survivor name">
+          <input id="playerName" type="text" maxlength="18" placeholder="Enter your survivor name" />
         </div>
+
         <div class="row" style="margin-top:14px;">
           <button id="startBtn">Start Game</button>
           <button id="guestBtn" class="secondary">Play as Guest</button>
         </div>
+
         <div class="tips">
-          <div class="tip"><strong>Shooting feels better:</strong> pistol, SMG, and shotgun each play differently, with punchier hit effects and wave pacing.</div>
-          <div class="tip"><strong>Movement is safer:</strong> collision uses your actual body size, and the map always starts with a reachable safe zone.</div>
-          <div class="tip"><strong>Zombies are smarter:</strong> they follow a live path grid, so they route around walls instead of getting permanently stuck.</div>
+          <div class="tip"><strong>Desktop:</strong> WASD to move, mouse to aim, hold click to fire, Shift to sprint, 1 / 2 / 3 to swap weapons.</div>
+          <div class="tip"><strong>Mobile:</strong> left stick moves, right stick aims, FIRE button shoots, pause and weapon swap buttons appear automatically.</div>
+          <div class="tip"><strong>Boss:</strong> every 5th wave is a multi-phase boss with bursts, dashes, reinforcements, rage phases, and better unstuck recovery.</div>
         </div>
       </div>
+
       <div class="panel-side">
         <h3 style="margin-bottom:12px;">Controls</h3>
         <div class="controls">
@@ -86,13 +111,13 @@
           <span class="key">1</span><span class="key">2</span><span class="key">3</span>
           <span class="key">Esc</span>
         </div>
+
         <div class="legend">
-          <div class="legend-item"><strong>Move:</strong> WASD</div>
-          <div class="legend-item"><strong>Aim:</strong> mouse</div>
-          <div class="legend-item"><strong>Shoot:</strong> hold left click</div>
-          <div class="legend-item"><strong>Sprint:</strong> hold Shift</div>
-          <div class="legend-item"><strong>Swap weapons:</strong> 1 Pistol, 2 SMG, 3 Shotgun</div>
-          <div class="legend-item"><strong>Pause:</strong> Esc</div>
+          <div class="legend-item"><strong>Move:</strong> WASD or left joystick</div>
+          <div class="legend-item"><strong>Aim:</strong> mouse or right touch pad</div>
+          <div class="legend-item"><strong>Fire:</strong> hold click or FIRE button</div>
+          <div class="legend-item"><strong>Sprint:</strong> hold Shift, or push joystick hard on mobile</div>
+          <div class="legend-item"><strong>Pause:</strong> Esc or pause button</div>
         </div>
       </div>
     </div>
@@ -101,9 +126,9 @@
   <div class="overlay" id="pauseOverlay">
     <div class="panel">
       <div class="panel-main" style="border-right:0;">
-        <h2 style="font-size:clamp(2rem,4vw,3.2rem); text-transform:uppercase; letter-spacing:0.08em;">Paused</h2>
+        <h2 class="overlay-title">Paused</h2>
         <div class="glow-bar"></div>
-        <p class="subtitle">Catch your breath. Press <strong>Esc</strong> to jump back in.</p>
+        <p class="subtitle">Press <strong>Esc</strong> or the pause button again to resume.</p>
         <div class="footer-row">
           <button id="resumeBtn">Resume</button>
           <button id="restartFromPauseBtn" class="secondary">Restart</button>
@@ -115,15 +140,17 @@
   <div class="overlay" id="gameOver">
     <div class="panel">
       <div class="panel-main" style="border-right:0;">
-        <h2 style="font-size:clamp(2rem,4vw,3.2rem); text-transform:uppercase; letter-spacing:0.08em;">Run Over</h2>
+        <h2 class="overlay-title">Run Over</h2>
         <div class="glow-bar"></div>
-        <p class="subtitle">You fought hard. Your score has been saved to the local leaderboard.</p>
+        <p class="subtitle">Your score has been saved locally.</p>
+
         <div class="stats-grid">
           <div class="stat-box"><div class="label">Wave</div><div class="value" id="finalWave">1</div></div>
           <div class="stat-box"><div class="label">Kills</div><div class="value" id="finalKills">0</div></div>
           <div class="stat-box"><div class="label">Score</div><div class="value" id="finalScore">0</div></div>
           <div class="stat-box"><div class="label">Time</div><div class="value" id="finalTime">0s</div></div>
         </div>
+
         <table>
           <thead>
             <tr>
@@ -137,6 +164,7 @@
           </thead>
           <tbody id="scoreRows"></tbody>
         </table>
+
         <div class="footer-row">
           <button id="restartBtn">Play Again</button>
           <button id="menuBtn" class="secondary">Main Menu</button>
@@ -145,7 +173,30 @@
     </div>
   </div>
 
-  
+  <div id="mobileControls">
+    <button id="mobilePause" class="mobile-btn top-btn">II</button>
+
+    <div id="mobileWeapons">
+      <button class="mobile-btn weapon-btn active" data-weapon="pistol">P</button>
+      <button class="mobile-btn weapon-btn" data-weapon="smg">S</button>
+      <button class="mobile-btn weapon-btn" data-weapon="shotgun">SG</button>
+    </div>
+
+    <div id="leftJoystick" class="joystick">
+      <div class="joy-base"></div>
+      <div class="joy-stick" id="leftStick"></div>
+      <div class="joy-label">MOVE</div>
+    </div>
+
+    <div id="rightPad" class="joystick aim-pad">
+      <div class="joy-base"></div>
+      <div class="joy-stick" id="rightStick"></div>
+      <div class="joy-label">AIM</div>
+    </div>
+
+    <button id="mobileFire" class="mobile-btn fire-btn">FIRE</button>
+  </div>
+
   <script src="script.js"></script>
 </body>
 </html>

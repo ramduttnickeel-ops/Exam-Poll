@@ -15,13 +15,17 @@ const hudWave = document.getElementById("hudWave");
 const hudKills = document.getElementById("hudKills");
 const hudScore = document.getElementById("hudScore");
 const hudTime = document.getElementById("hudTime");
+const hudCombo = document.getElementById("hudCombo");
+
 const healthFill = document.getElementById("healthFill");
 const staminaFill = document.getElementById("staminaFill");
 const healthText = document.getElementById("healthText");
 const staminaText = document.getElementById("staminaText");
+
 const bossBarWrap = document.getElementById("bossBarWrap");
 const bossFill = document.getElementById("bossFill");
 const bossText = document.getElementById("bossText");
+
 const weaponText = document.getElementById("weaponText");
 const weaponHint = document.getElementById("weaponHint");
 const buffsEl = document.getElementById("buffs");
@@ -32,19 +36,24 @@ const finalScore = document.getElementById("finalScore");
 const finalTime = document.getElementById("finalTime");
 const scoreRows = document.getElementById("scoreRows");
 
+const mobileControls = document.getElementById("mobileControls");
+const leftJoystick = document.getElementById("leftJoystick");
+const rightPad = document.getElementById("rightPad");
+const leftStickEl = document.getElementById("leftStick");
+const rightStickEl = document.getElementById("rightStick");
+const mobileFireBtn = document.getElementById("mobileFire");
+const mobilePauseBtn = document.getElementById("mobilePause");
+const weaponButtons = document.querySelectorAll(".weapon-btn");
+
 const TILE = 56;
 const MAP_COLS = 36;
 const MAP_ROWS = 22;
 const WORLD_W = TILE * MAP_COLS;
 const WORLD_H = TILE * MAP_ROWS;
-const SCORE_KEY = "ultraZombieSurvivalScoresV2";
+const SCORE_KEY = "ultraZombieSurvivalFinalScores";
 
-const input = {
-  keys: {},
-  mouseX: window.innerWidth * 0.5,
-  mouseY: window.innerHeight * 0.5,
-  mouseDown: false
-};
+const IS_TOUCH = window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
+const MAX_PARTICLES = IS_TOUCH ? 110 : 260;
 
 const rng = (min, max) => Math.random() * (max - min) + min;
 const randInt = (min, max) => Math.floor(rng(min, max + 1));
@@ -66,7 +75,7 @@ const WEAPONS = {
   },
   smg: {
     name: "SMG",
-    hint: "Rapid fire",
+    hint: "Rapid Fire",
     cooldown: 0.075,
     speed: 1120,
     damage: 16,
@@ -78,7 +87,7 @@ const WEAPONS = {
   },
   shotgun: {
     name: "Shotgun",
-    hint: "Close range burst",
+    hint: "Close Burst",
     cooldown: 0.52,
     speed: 920,
     damage: 18,
@@ -95,6 +104,27 @@ const PICKUPS = {
   rapid: { label: "Rapid Fire", color: "#77f5ff" },
   damage: { label: "Damage Boost", color: "#ffd96b" },
   shield: { label: "Shield", color: "#b88cff" }
+};
+
+const input = {
+  keys: {},
+  mouseX: window.innerWidth * 0.5,
+  mouseY: window.innerHeight * 0.5,
+  mouseDown: false,
+  mobileFire: false,
+  fireButtonHeld: false,
+  leftStick: {
+    active: false,
+    id: null,
+    x: 0,
+    y: 0
+  },
+  rightStick: {
+    active: false,
+    id: null,
+    x: 0,
+    y: 0
+  }
 };
 
 let dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -128,13 +158,15 @@ const game = {
   announcementTimer: 0,
   bossRef: null,
   backgroundDrift: 0,
-  startedAt: 0
+  comboCount: 0,
+  comboTimer: 0,
+  comboMult: 1
 };
 
 function resizeCanvas() {
   cw = window.innerWidth;
   ch = window.innerHeight;
-  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  dpr = Math.min(window.devicePixelRatio || 1, IS_TOUCH ? 1.2 : 2);
   canvas.width = Math.floor(cw * dpr);
   canvas.height = Math.floor(ch * dpr);
   canvas.style.width = cw + "px";
@@ -168,7 +200,7 @@ function makePlayer(name) {
   };
 }
 
-function showAnnouncement(top, main, seconds = 1.8) {
+function showAnnouncement(top, main, seconds = 1.6) {
   announceTop.textContent = top;
   announceMain.textContent = main;
   announcer.classList.add("show");
@@ -215,6 +247,7 @@ function buildMap() {
           }
         }
       }
+
       if (blocked) continue;
 
       for (let row = startRow; row < startRow + h; row++) {
@@ -256,9 +289,11 @@ function buildMap() {
       row === 0 || col === 0 || row === MAP_ROWS - 1 || col === MAP_COLS - 1 ? 1 : 0
     )
   );
+
   game.floorShade = Array.from({ length: MAP_ROWS }, () =>
     Array.from({ length: MAP_COLS }, () => rng(0, 1))
   );
+
   game.reachable = floodFill(game.map, Math.floor(MAP_ROWS / 2), Math.floor(MAP_COLS / 2));
   game.reachableSet = new Set(game.reachable.map(cell => `${cell.row},${cell.col}`));
 }
@@ -359,10 +394,7 @@ function moveCircle(entity, vx, vy, dt) {
 }
 
 function tileCenter(row, col) {
-  return {
-    x: col * TILE + TILE * 0.5,
-    y: row * TILE + TILE * 0.5
-  };
+  return { x: col * TILE + TILE * 0.5, y: row * TILE + TILE * 0.5 };
 }
 
 function randomReachableTile(minDistanceFromPlayer = 0) {
@@ -384,15 +416,34 @@ function randomReachableTile(minDistanceFromPlayer = 0) {
   return { ...fallback, ...tileCenter(fallback.row, fallback.col) };
 }
 
+function registerKill(baseScore, x, y, isBoss = false) {
+  if (game.comboTimer > 0) {
+    game.comboCount += 1;
+  } else {
+    game.comboCount = 1;
+  }
+
+  game.comboTimer = 3.2;
+  game.comboMult = 1 + Math.min(1.5, (game.comboCount - 1) * 0.08);
+  const awarded = Math.round(baseScore * game.comboMult);
+  game.score += awarded;
+
+  if (game.comboCount === 5) showAnnouncement("Streak", "Combo x5", 0.9);
+  if (game.comboCount === 10) showAnnouncement("Streak", "Combo x10", 1.1);
+  if (game.comboCount === 15) showAnnouncement("Insane", "Combo x15", 1.2);
+
+  addParticles(x, y, isBoss ? "rgba(255,88,240,0.95)" : "rgba(255,70,90,0.95)", isBoss ? 28 : 16, 240, 0.55, 3.2);
+}
+
 function spawnZombie(kind) {
   const tile = randomReachableTile(480);
 
   const base = {
-    normal: { speed: 92, health: 44, radius: 16, color: "#ff5b61", damage: 10, touchCd: 0.75 },
-    runner: { speed: 150, health: 26, radius: 13, color: "#ff9362", damage: 8, touchCd: 0.65 },
-    brute: { speed: 72, health: 130, radius: 22, color: "#c43d54", damage: 18, touchCd: 0.92 },
-    spitter: { speed: 84, health: 52, radius: 17, color: "#b975ff", damage: 10, touchCd: 0.8 },
-    boss: { speed: 88, health: 420, radius: 30, color: "#f03eff", damage: 22, touchCd: 0.78 }
+    normal: { speed: 92, health: 44, radius: 16, color: "#ff5b61", damage: 10 },
+    runner: { speed: 150, health: 26, radius: 13, color: "#ff9362", damage: 8 },
+    brute: { speed: 72, health: 130, radius: 22, color: "#c43d54", damage: 18 },
+    spitter: { speed: 84, health: 52, radius: 17, color: "#b975ff", damage: 10 },
+    boss: { speed: 88, health: 420, radius: 24, color: "#f03eff", damage: 22 }
   }[kind];
 
   const scale = 1 + (game.wave - 1) * (kind === "boss" ? 0.15 : 0.07);
@@ -409,9 +460,17 @@ function spawnZombie(kind) {
     damage: base.damage,
     touchCooldown: 0,
     shootCooldown: rng(0.8, 1.7),
-    heading: rng(0, Math.PI * 2),
     hitFlash: 0,
-    isBoss: kind === "boss"
+    isBoss: kind === "boss",
+    dashCooldown: kind === "boss" ? 2.8 : 0,
+    dashTime: 0,
+    summonCooldown: kind === "boss" ? 6.5 : 0,
+    phase: 1,
+    prevPhase: 1,
+    lastX: tile.x,
+    lastY: tile.y,
+    stuckTimer: 0,
+    wanderAngle: rng(0, Math.PI * 2)
   };
 
   game.zombies.push(zombie);
@@ -430,6 +489,7 @@ function queueWave(waveNumber) {
     if (waveNumber >= 2 && roll < 0.2) kind = "runner";
     if (waveNumber >= 3 && roll > 0.72) kind = "brute";
     if (waveNumber >= 4 && roll > 0.86) kind = "spitter";
+
     game.spawnQueue.push(kind);
   }
 
@@ -441,6 +501,25 @@ function queueWave(waveNumber) {
   showAnnouncement("Incoming", waveNumber % 5 === 0 ? `Wave ${waveNumber} • Boss` : `Wave ${waveNumber}`);
   game.player.health = clamp(game.player.health + 10, 0, game.player.maxHealth);
   game.player.stamina = clamp(game.player.stamina + 25, 0, game.player.maxStamina);
+}
+
+function resetTouchControls() {
+  input.mobileFire = false;
+  input.fireButtonHeld = false;
+
+  input.leftStick.active = false;
+  input.leftStick.id = null;
+  input.leftStick.x = 0;
+  input.leftStick.y = 0;
+
+  input.rightStick.active = false;
+  input.rightStick.id = null;
+  input.rightStick.x = 0;
+  input.rightStick.y = 0;
+
+  leftStickEl.style.transform = "translate(0px, 0px)";
+  rightStickEl.style.transform = "translate(0px, 0px)";
+  mobileFireBtn.classList.remove("active");
 }
 
 function resetGame() {
@@ -466,21 +545,22 @@ function resetGame() {
   game.timeSinceWaveEnd = 0;
   game.spawnQueue = [];
   game.spawnTimer = 0;
-  game.camera = {
-    x: spawn.x - cw * 0.5,
-    y: spawn.y - ch * 0.5,
-    shake: 0
-  };
+  game.camera = { x: spawn.x - cw * 0.5, y: spawn.y - ch * 0.5, shake: 0 };
   game.announcementTimer = 0;
   game.bossRef = null;
   game.backgroundDrift = 0;
-  game.startedAt = performance.now();
-  game.lastDistanceTile = { row: -1, col: -1 };
+  game.comboCount = 0;
+  game.comboTimer = 0;
+  game.comboMult = 1;
 
   buildDistanceField(Math.floor(MAP_ROWS / 2), Math.floor(MAP_COLS / 2));
+  game.lastDistanceTile = { row: -1, col: -1 };
+
   queueWave(1);
-  hud.style.display = "flex";
+  hud.style.display = "block";
   hideAnnouncement();
+  resetTouchControls();
+  updateWeaponButtons();
 }
 
 function startGame() {
@@ -490,6 +570,12 @@ function startGame() {
   pauseOverlay.style.display = "none";
   gameOverOverlay.style.display = "none";
   hudName.textContent = game.player.name;
+
+  if (IS_TOUCH) {
+    mobileControls.classList.add("show");
+  } else {
+    mobileControls.classList.remove("show");
+  }
 }
 
 function saveScore() {
@@ -540,6 +626,8 @@ function endGame() {
 
   gameOverOverlay.style.display = "flex";
   pauseOverlay.style.display = "none";
+  mobileControls.classList.remove("show");
+  resetTouchControls();
 }
 
 function returnToMenu() {
@@ -548,6 +636,8 @@ function returnToMenu() {
   pauseOverlay.style.display = "none";
   gameOverOverlay.style.display = "none";
   hud.style.display = "none";
+  mobileControls.classList.remove("show");
+  resetTouchControls();
   hideAnnouncement();
 }
 
@@ -555,18 +645,23 @@ function togglePause() {
   if (game.state === "playing") {
     game.state = "paused";
     pauseOverlay.style.display = "flex";
+    mobileControls.classList.remove("show");
   } else if (game.state === "paused") {
     game.state = "playing";
     pauseOverlay.style.display = "none";
+    if (IS_TOUCH) mobileControls.classList.add("show");
   }
 }
 
-function useWeaponByIndex(index) {
+function updateWeaponButtons() {
   if (!game.player) return;
+  weaponButtons.forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.weapon === game.player.weapon);
+  });
+}
 
-  const allowed = ["pistol", "smg", "shotgun"];
-  const selected = allowed[index];
-  if (!selected) return;
+function useWeapon(weaponName) {
+  if (!game.player) return;
 
   const unlockWave = {
     pistol: 1,
@@ -574,9 +669,16 @@ function useWeaponByIndex(index) {
     shotgun: 4
   };
 
-  if (game.wave >= unlockWave[selected]) {
-    game.player.weapon = selected;
+  if (game.wave >= unlockWave[weaponName]) {
+    game.player.weapon = weaponName;
+    updateWeaponButtons();
   }
+}
+
+function useWeaponByIndex(index) {
+  const allowed = ["pistol", "smg", "shotgun"];
+  const selected = allowed[index];
+  if (selected) useWeapon(selected);
 }
 
 function spawnPickup(x, y) {
@@ -598,7 +700,11 @@ function spawnPickup(x, y) {
 }
 
 function addParticles(x, y, color, amount, speed = 180, life = 0.45, size = 3) {
-  for (let i = 0; i < amount; i++) {
+  if (game.particles.length > MAX_PARTICLES) return;
+
+  const spawnCount = IS_TOUCH ? Math.ceil(amount * 0.5) : amount;
+
+  for (let i = 0; i < spawnCount; i++) {
     const angle = rng(0, Math.PI * 2);
     const power = rng(speed * 0.35, speed);
 
@@ -646,7 +752,9 @@ function damagePlayer(amount, sourceX, sourceY) {
 function shootWeapon() {
   const player = game.player;
   if (!player || player.fireCooldown > 0) return;
-  if (!input.mouseDown) return;
+
+  const wantsFire = input.mouseDown || input.mobileFire || input.fireButtonHeld || input.rightStick.active;
+  if (!wantsFire) return;
 
   const weapon = WEAPONS[player.weapon];
   let cooldown = weapon.cooldown;
@@ -695,6 +803,18 @@ function lineOfSight(x1, y1, x2, y2) {
   return true;
 }
 
+function getTouchMoveVector() {
+  if (!input.leftStick.active) return { x: 0, y: 0, mag: 0 };
+  const mag = Math.hypot(input.leftStick.x, input.leftStick.y);
+  return { x: input.leftStick.x, y: input.leftStick.y, mag };
+}
+
+function getTouchAimVector() {
+  if (!input.rightStick.active) return { x: 0, y: 0, mag: 0 };
+  const mag = Math.hypot(input.rightStick.x, input.rightStick.y);
+  return { x: input.rightStick.x, y: input.rightStick.y, mag };
+}
+
 function updatePlaying(dt) {
   const player = game.player;
   if (!player) return;
@@ -707,6 +827,14 @@ function updatePlaying(dt) {
     if (game.announcementTimer <= 0) hideAnnouncement();
   }
 
+  if (game.comboTimer > 0) {
+    game.comboTimer -= dt;
+    if (game.comboTimer <= 0) {
+      game.comboCount = 0;
+      game.comboMult = 1;
+    }
+  }
+
   player.invuln = Math.max(0, player.invuln - dt);
   player.fireCooldown = Math.max(0, player.fireCooldown - dt);
   player.muzzleFlash = Math.max(0, player.muzzleFlash - dt);
@@ -716,20 +844,29 @@ function updatePlaying(dt) {
   let moveX = 0;
   let moveY = 0;
 
-  if (input.keys.w) moveY -= 1;
-  if (input.keys.s) moveY += 1;
-  if (input.keys.a) moveX -= 1;
-  if (input.keys.d) moveX += 1;
+  if (IS_TOUCH && input.leftStick.active) {
+    const touchMove = getTouchMoveVector();
+    moveX = touchMove.x;
+    moveY = touchMove.y;
+  } else {
+    if (input.keys.w) moveY -= 1;
+    if (input.keys.s) moveY += 1;
+    if (input.keys.a) moveX -= 1;
+    if (input.keys.d) moveX += 1;
 
-  const moving = moveX !== 0 || moveY !== 0;
-
-  if (moving) {
-    const length = Math.hypot(moveX, moveY);
-    moveX /= length;
-    moveY /= length;
+    const len = Math.hypot(moveX, moveY);
+    if (len > 0) {
+      moveX /= len;
+      moveY /= len;
+    }
   }
 
-  const wantsSprint = moving && input.keys.shift && player.stamina > 1;
+  const moving = Math.abs(moveX) > 0.001 || Math.abs(moveY) > 0.001;
+  const touchMag = Math.hypot(moveX, moveY);
+  const wantsSprintDesktop = moving && input.keys.shift && player.stamina > 1;
+  const wantsSprintMobile = IS_TOUCH && touchMag > 0.8 && player.stamina > 1;
+  const wantsSprint = wantsSprintDesktop || wantsSprintMobile;
+
   const speedMult = wantsSprint ? player.sprintMult : 1;
 
   if (wantsSprint) {
@@ -746,9 +883,16 @@ function updatePlaying(dt) {
   game.camera.x = lerp(game.camera.x, targetCamX, 0.12);
   game.camera.y = lerp(game.camera.y, targetCamY, 0.12);
 
-  const mouseWorldX = input.mouseX + game.camera.x;
-  const mouseWorldY = input.mouseY + game.camera.y;
-  player.angle = Math.atan2(mouseWorldY - player.y, mouseWorldX - player.x);
+  if (IS_TOUCH && input.rightStick.active) {
+    const aim = getTouchAimVector();
+    if (aim.mag > 0.12) {
+      player.angle = Math.atan2(aim.y, aim.x);
+    }
+  } else {
+    const mouseWorldX = input.mouseX + game.camera.x;
+    const mouseWorldY = input.mouseY + game.camera.y;
+    player.angle = Math.atan2(mouseWorldY - player.y, mouseWorldX - player.x);
+  }
 
   shootWeapon();
 
@@ -812,7 +956,7 @@ function updatePlaying(dt) {
           dead = true;
 
           if (zombie.health <= 0) {
-            game.score += zombie.isBoss
+            const baseScore = zombie.isBoss
               ? 650
               : zombie.kind === "brute"
               ? 180
@@ -822,25 +966,15 @@ function updatePlaying(dt) {
               ? 120
               : 90;
 
+            registerKill(baseScore, zombie.x, zombie.y, zombie.isBoss);
             game.kills += 1;
 
             game.decals.push({
               x: zombie.x,
               y: zombie.y,
               radius: rng(zombie.radius * 0.8, zombie.radius * 1.45),
-              alpha: rng(0.18, 0.3),
               color: zombie.isBoss ? "rgba(230,80,255,0.18)" : "rgba(255,60,70,0.18)"
             });
-
-            addParticles(
-              zombie.x,
-              zombie.y,
-              zombie.isBoss ? "rgba(255,88,240,0.95)" : "rgba(255,70,90,0.95)",
-              zombie.isBoss ? 28 : 16,
-              240,
-              0.55,
-              3.2
-            );
 
             spawnPickup(zombie.x, zombie.y);
 
@@ -902,19 +1036,19 @@ function updatePlaying(dt) {
     if (Math.hypot(pickup.x - player.x, pickup.y - player.y) <= pickup.radius + player.radius) {
       if (pickup.type === "medkit") {
         player.health = clamp(player.health + 30, 0, player.maxHealth);
-        showAnnouncement("Recovered", "Medkit Grabbed", 1.2);
+        showAnnouncement("Recovered", "Medkit Grabbed", 1.1);
       }
       if (pickup.type === "rapid") {
         player.buffs.rapid = 8;
-        showAnnouncement("Boost Active", "Rapid Fire", 1.2);
+        showAnnouncement("Boost Active", "Rapid Fire", 1.1);
       }
       if (pickup.type === "damage") {
         player.buffs.damage = 8;
-        showAnnouncement("Boost Active", "Damage Boost", 1.2);
+        showAnnouncement("Boost Active", "Damage Boost", 1.1);
       }
       if (pickup.type === "shield") {
         player.armor = Math.min(60, player.armor + 35);
-        showAnnouncement("Barrier Raised", "Shield +35", 1.2);
+        showAnnouncement("Barrier Raised", "Shield +35", 1.1);
       }
 
       addParticles(pickup.x, pickup.y, PICKUPS[pickup.type].color, 12, 190, 0.4, 2.8);
@@ -1010,27 +1144,103 @@ function updatePlaying(dt) {
     }
 
     if (zombie.kind === "boss") {
-      if (distToPlayer > 150) {
-        dirX = dx / distToPlayer;
-        dirY = dy / distToPlayer;
+      const hpRatio = zombie.health / zombie.maxHealth;
+      zombie.phase = hpRatio < 0.33 ? 3 : hpRatio < 0.66 ? 2 : 1;
+
+      if (zombie.phase !== zombie.prevPhase) {
+        showAnnouncement("Boss Enraged", `Phase ${zombie.phase}`, 1.1);
+        zombie.prevPhase = zombie.phase;
+        game.camera.shake += 7;
       }
 
-      if (zombie.shootCooldown <= 0) {
-        for (let b = -1; b <= 1; b++) {
-          const angle = Math.atan2(dy, dx) + b * 0.2;
+      zombie.dashCooldown = Math.max(0, zombie.dashCooldown - dt);
+      zombie.dashTime = Math.max(0, zombie.dashTime - dt);
+      zombie.summonCooldown = Math.max(0, zombie.summonCooldown - dt);
+
+      zombie.speed = zombie.phase === 1 ? 92 : zombie.phase === 2 ? 110 : 132;
+
+      let bestRow = row;
+      let bestCol = col;
+      let bestDist = game.distanceField[row]?.[col] ?? Infinity;
+
+      for (let nr = row - 1; nr <= row + 1; nr++) {
+        for (let nc = col - 1; nc <= col + 1; nc++) {
+          if (nr <= 0 || nc <= 0 || nr >= MAP_ROWS - 1 || nc >= MAP_COLS - 1) continue;
+          if (game.map[nr][nc] === 1) continue;
+
+          const value = game.distanceField[nr][nc];
+          if (value < bestDist) {
+            bestDist = value;
+            bestRow = nr;
+            bestCol = nc;
+          }
+        }
+      }
+
+      const target = tileCenter(bestRow, bestCol);
+      dirX = target.x - zombie.x;
+      dirY = target.y - zombie.y;
+
+      let len = Math.hypot(dirX, dirY) || 1;
+      dirX /= len;
+      dirY /= len;
+
+      const bossHasLOS = lineOfSight(zombie.x, zombie.y, player.x, player.y);
+
+      if (zombie.dashCooldown <= 0 && distToPlayer < 420 && bossHasLOS) {
+        zombie.dashTime = zombie.phase === 3 ? 0.55 : 0.4;
+        zombie.dashCooldown = zombie.phase === 3 ? 1.8 : zombie.phase === 2 ? 2.4 : 3.2;
+        showAnnouncement("Boss Attack", "Incoming Dash", 0.7);
+        game.camera.shake += 5;
+      }
+
+      if (zombie.dashTime > 0 && bossHasLOS) {
+        dirX = dx / distToPlayer;
+        dirY = dy / distToPlayer;
+      } else if (zombie.dashTime > 0 && !bossHasLOS) {
+        zombie.dashTime = 0;
+      }
+
+      if (zombie.shootCooldown <= 0 && bossHasLOS) {
+        const burst = zombie.phase === 1 ? 3 : zombie.phase === 2 ? 5 : 7;
+
+        for (let b = 0; b < burst; b++) {
+          const spread = (b - (burst - 1) / 2) * 0.12;
+          const angle = Math.atan2(dy, dx) + spread;
+
           game.enemyShots.push({
             x: zombie.x,
             y: zombie.y,
-            vx: Math.cos(angle) * 340,
-            vy: Math.sin(angle) * 340,
-            radius: 7,
-            damage: 13,
+            vx: Math.cos(angle) * (zombie.phase === 3 ? 390 : 340),
+            vy: Math.sin(angle) * (zombie.phase === 3 ? 390 : 340),
+            radius: zombie.phase === 3 ? 8 : 7,
+            damage: zombie.phase === 3 ? 15 : 13,
             life: 2.1
           });
         }
 
-        zombie.shootCooldown = 1.45;
+        zombie.shootCooldown = zombie.phase === 3 ? 1.1 : zombie.phase === 2 ? 1.4 : 1.8;
         game.camera.shake += 2;
+      }
+
+      if (zombie.summonCooldown <= 0) {
+        spawnZombie("runner");
+        spawnZombie("runner");
+        if (zombie.phase >= 2) spawnZombie("spitter");
+        if (zombie.phase === 3) spawnZombie("brute");
+
+        zombie.summonCooldown = zombie.phase === 3 ? 6 : zombie.phase === 2 ? 8 : 10;
+        showAnnouncement("Boss Call", "Reinforcements", 0.9);
+      }
+
+      if (zombie.stuckTimer > 0.45) {
+        zombie.wanderAngle += dt * 8;
+        dirX = dirX * 0.35 + Math.cos(zombie.wanderAngle) * 0.65;
+        dirY = dirY * 0.35 + Math.sin(zombie.wanderAngle) * 0.65;
+        len = Math.hypot(dirX, dirY) || 1;
+        dirX /= len;
+        dirY /= len;
+        zombie.dashTime = 0;
       }
     }
 
@@ -1057,11 +1267,40 @@ function updatePlaying(dt) {
     sepX /= sepLen;
     sepY /= sepLen;
 
-    const finalX = dirX * 0.82 + sepX * 0.7;
-    const finalY = dirY * 0.82 + sepY * 0.7;
+    const sepWeight = zombie.kind === "boss" ? 0.28 : 0.7;
+    const finalX = dirX * 0.82 + sepX * sepWeight;
+    const finalY = dirY * 0.82 + sepY * sepWeight;
     const finalLen = Math.hypot(finalX, finalY) || 1;
 
-    moveCircle(zombie, (finalX / finalLen) * zombie.speed, (finalY / finalLen) * zombie.speed, dt);
+    const moveSpeed =
+      zombie.kind === "boss" && zombie.dashTime > 0
+        ? zombie.speed * 2.6
+        : zombie.speed;
+
+    moveCircle(zombie, (finalX / finalLen) * moveSpeed, (finalY / finalLen) * moveSpeed, dt);
+
+    if (zombie.kind === "boss") {
+      const movedDist = Math.hypot(zombie.x - zombie.lastX, zombie.y - zombie.lastY);
+
+      if (movedDist < 1.5) {
+        zombie.stuckTimer += dt;
+      } else {
+        zombie.stuckTimer = Math.max(0, zombie.stuckTimer - dt * 2);
+      }
+
+      zombie.lastX = zombie.x;
+      zombie.lastY = zombie.y;
+
+      if (zombie.stuckTimer > 1.25) {
+        const rescue = randomReachableTile(260);
+        zombie.x = rescue.x;
+        zombie.y = rescue.y;
+        zombie.stuckTimer = 0;
+        zombie.dashTime = 0;
+        addParticles(zombie.x, zombie.y, "rgba(255, 70, 240, 0.95)", 18, 220, 0.45, 3.2);
+        showAnnouncement("Phase Shift", "Boss Repositioned", 0.7);
+      }
+    }
 
     if (distToPlayer <= zombie.radius + player.radius + 2 && zombie.touchCooldown <= 0) {
       damagePlayer(zombie.damage, zombie.x, zombie.y);
@@ -1087,11 +1326,17 @@ function updatePlaying(dt) {
   if (game.spawnQueue.length === 0 && game.zombies.length === 0) {
     game.timeSinceWaveEnd += dt;
     if (game.timeSinceWaveEnd > 2.2) {
-      game.timeSinceWaveEnd = 0;
-      queueWave(game.wave + 1);
+      showAnnouncement("Cleared", `Wave ${game.wave} Complete`, 0.8);
+      game.timeSinceWaveEnd = -999;
+      setTimeout(() => {
+        if (game.state === "playing") {
+          game.timeSinceWaveEnd = 0;
+          queueWave(game.wave + 1);
+        }
+      }, 900);
     }
   } else {
-    game.timeSinceWaveEnd = 0;
+    if (game.timeSinceWaveEnd !== -999) game.timeSinceWaveEnd = 0;
   }
 
   game.score += dt * 6 + (player.buffs.rapid > 0 || player.buffs.damage > 0 ? dt * 2 : 0);
@@ -1111,17 +1356,23 @@ function updateHUD() {
   hudKills.textContent = game.kills;
   hudScore.textContent = Math.round(game.score);
   hudTime.textContent = formatTime(game.elapsed);
+  hudCombo.textContent = `x${game.comboMult.toFixed(1)}`;
 
   healthFill.style.width = `${(player.health / player.maxHealth) * 100}%`;
   staminaFill.style.width = `${(player.stamina / player.maxStamina) * 100}%`;
-  healthText.textContent = `${Math.ceil(player.health)} / ${player.maxHealth}` + (player.armor > 0 ? ` + ${Math.ceil(player.armor)} armor` : "");
+
+  healthText.textContent =
+    `${Math.ceil(player.health)} / ${player.maxHealth}` +
+    (player.armor > 0 ? ` + ${Math.ceil(player.armor)} armor` : "");
+
   staminaText.textContent = `${Math.ceil(player.stamina)} / ${player.maxStamina}`;
 
   weaponText.textContent = WEAPONS[player.weapon].name;
   weaponHint.textContent = WEAPONS[player.weapon].hint;
+  updateWeaponButtons();
 
   if (game.bossRef && game.zombies.includes(game.bossRef)) {
-    bossBarWrap.style.display = "grid";
+    bossBarWrap.style.display = "block";
     bossFill.style.width = `${(game.bossRef.health / game.bossRef.maxHealth) * 100}%`;
     bossText.textContent = `${Math.max(0, Math.ceil(game.bossRef.health))} / ${game.bossRef.maxHealth}`;
   } else {
@@ -1129,8 +1380,8 @@ function updateHUD() {
   }
 
   const buffs = [];
-  if (player.buffs.rapid > 0) buffs.push(`<span class="buff">Rapid Fire ${player.buffs.rapid.toFixed(1)}s</span>`);
-  if (player.buffs.damage > 0) buffs.push(`<span class="buff">Damage Boost ${player.buffs.damage.toFixed(1)}s</span>`);
+  if (player.buffs.rapid > 0) buffs.push(`<span class="buff">Rapid ${player.buffs.rapid.toFixed(1)}s</span>`);
+  if (player.buffs.damage > 0) buffs.push(`<span class="buff">Damage ${player.buffs.damage.toFixed(1)}s</span>`);
   if (player.armor > 0) buffs.push(`<span class="buff">Shield ${Math.ceil(player.armor)}</span>`);
 
   buffsEl.innerHTML = buffs.length ? buffs.join("") : `<span class="buff muted">No active boosts</span>`;
@@ -1143,7 +1394,6 @@ function drawBackgroundOnly(time) {
   grad.addColorStop(0, "#132237");
   grad.addColorStop(0.45, "#0a1119");
   grad.addColorStop(1, "#04070b");
-
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, cw, ch);
 
@@ -1157,27 +1407,6 @@ function drawBackgroundOnly(time) {
     ctx.beginPath();
     ctx.arc(x, y, 2 + (i % 3), 0, Math.PI * 2);
     ctx.fill();
-  }
-
-  ctx.restore();
-
-  ctx.save();
-  ctx.strokeStyle = "rgba(98,238,255,0.08)";
-  ctx.lineWidth = 1;
-
-  const grid = 56;
-  for (let x = -grid; x < cw + grid; x += grid) {
-    ctx.beginPath();
-    ctx.moveTo(x + (time * 12) % grid, 0);
-    ctx.lineTo(x + (time * 12) % grid, ch);
-    ctx.stroke();
-  }
-
-  for (let y = -grid; y < ch + grid; y += grid) {
-    ctx.beginPath();
-    ctx.moveTo(0, y + (time * 8) % grid);
-    ctx.lineTo(cw, y + (time * 8) % grid);
-    ctx.stroke();
   }
 
   ctx.restore();
@@ -1240,8 +1469,10 @@ function drawGame() {
 
     ctx.save();
     ctx.translate(pickup.x, pickup.y + bob);
-    ctx.shadowColor = def.color;
-    ctx.shadowBlur = 18;
+    if (!IS_TOUCH) {
+      ctx.shadowColor = def.color;
+      ctx.shadowBlur = 18;
+    }
     ctx.fillStyle = def.color;
     ctx.beginPath();
     ctx.arc(0, 0, pickup.radius, 0, Math.PI * 2);
@@ -1257,8 +1488,10 @@ function drawGame() {
 
   for (const shot of game.enemyShots) {
     ctx.save();
-    ctx.shadowColor = "rgba(190,110,255,0.95)";
-    ctx.shadowBlur = 16;
+    if (!IS_TOUCH) {
+      ctx.shadowColor = "rgba(190,110,255,0.95)";
+      ctx.shadowBlur = 16;
+    }
     ctx.fillStyle = "#d59dff";
     ctx.beginPath();
     ctx.arc(shot.x, shot.y, shot.radius, 0, Math.PI * 2);
@@ -1268,8 +1501,10 @@ function drawGame() {
 
   for (const bullet of game.bullets) {
     ctx.save();
-    ctx.shadowColor = bullet.color;
-    ctx.shadowBlur = 14;
+    if (!IS_TOUCH) {
+      ctx.shadowColor = bullet.color;
+      ctx.shadowBlur = 14;
+    }
     ctx.fillStyle = bullet.color;
     ctx.beginPath();
     ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2);
@@ -1280,34 +1515,49 @@ function drawGame() {
   for (const zombie of game.zombies) {
     ctx.save();
     const flash = zombie.hitFlash > 0 ? 1 : 0;
-    ctx.shadowColor = zombie.isBoss
-      ? "rgba(240,62,255,0.85)"
-      : zombie.kind === "spitter"
-      ? "rgba(185,117,255,0.65)"
-      : "rgba(255,80,95,0.38)";
-    ctx.shadowBlur = zombie.isBoss ? 26 : 14;
+    if (!IS_TOUCH) {
+      ctx.shadowColor = zombie.isBoss
+        ? "rgba(240,62,255,0.85)"
+        : zombie.kind === "spitter"
+        ? "rgba(185,117,255,0.65)"
+        : "rgba(255,80,95,0.38)";
+      ctx.shadowBlur = zombie.isBoss ? 26 : 14;
+    }
     ctx.fillStyle = flash ? "#ffffff" : zombie.color;
     ctx.beginPath();
     ctx.arc(zombie.x, zombie.y, zombie.radius, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
+    if (zombie.isBoss) {
+      const pulse = 1 + Math.sin(performance.now() * 0.008) * 0.12;
+      ctx.save();
+      ctx.globalAlpha = 0.16;
+      ctx.strokeStyle =
+        zombie.phase === 3 ? "#ff64ef" :
+        zombie.phase === 2 ? "#d07cff" : "#a46bff";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(zombie.x, zombie.y, zombie.radius * 1.55 * pulse, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     const eyeAngle = Math.atan2(game.player.y - zombie.y, game.player.x - zombie.x);
     const eyeOffset = zombie.radius * 0.35;
-    const eyeSpread = zombie.radius * 0.38;
 
     ctx.fillStyle = "#14080f";
     ctx.beginPath();
     ctx.arc(
       zombie.x + Math.cos(eyeAngle - 0.5) * eyeOffset,
-      zombie.y + Math.sin(eyeAngle - 0.5) * eyeOffset - eyeSpread * 0.18,
+      zombie.y + Math.sin(eyeAngle - 0.5) * eyeOffset,
       Math.max(2.3, zombie.radius * 0.14),
       0,
       Math.PI * 2
     );
     ctx.arc(
       zombie.x + Math.cos(eyeAngle + 0.5) * eyeOffset,
-      zombie.y + Math.sin(eyeAngle + 0.5) * eyeOffset - eyeSpread * 0.18,
+      zombie.y + Math.sin(eyeAngle + 0.5) * eyeOffset,
       Math.max(2.3, zombie.radius * 0.14),
       0,
       Math.PI * 2
@@ -1319,12 +1569,7 @@ function drawGame() {
       ctx.fillStyle = "rgba(0,0,0,0.35)";
       ctx.fillRect(zombie.x - w * 0.5, zombie.y - zombie.radius - 12, w, 4);
       ctx.fillStyle = zombie.isBoss ? "#ff66e6" : "#ff6a7c";
-      ctx.fillRect(
-        zombie.x - w * 0.5,
-        zombie.y - zombie.radius - 12,
-        w * (zombie.health / zombie.maxHealth),
-        4
-      );
+      ctx.fillRect(zombie.x - w * 0.5, zombie.y - zombie.radius - 12, w * (zombie.health / zombie.maxHealth), 4);
     }
   }
 
@@ -1333,12 +1578,13 @@ function drawGame() {
     const bob = Math.sin(player.stepBob) * 1.5;
     const bodyColor = player.invuln > 0 ? "rgba(255,255,255,0.9)" : "#7ef4ff";
     const weaponLength = player.weapon === "shotgun" ? 28 : player.weapon === "smg" ? 24 : 26;
-    const armAngle = player.angle;
 
     ctx.save();
     ctx.translate(player.x, player.y + bob);
-    ctx.shadowColor = "rgba(126,244,255,0.45)";
-    ctx.shadowBlur = 18;
+    if (!IS_TOUCH) {
+      ctx.shadowColor = "rgba(126,244,255,0.45)";
+      ctx.shadowBlur = 18;
+    }
     ctx.fillStyle = bodyColor;
     ctx.beginPath();
     ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
@@ -1351,8 +1597,8 @@ function drawGame() {
     ctx.beginPath();
     ctx.moveTo(player.x, player.y + bob);
     ctx.lineTo(
-      player.x + Math.cos(armAngle) * weaponLength,
-      player.y + bob + Math.sin(armAngle) * weaponLength
+      player.x + Math.cos(player.angle) * weaponLength,
+      player.y + bob + Math.sin(player.angle) * weaponLength
     );
     ctx.stroke();
 
@@ -1362,16 +1608,12 @@ function drawGame() {
     ctx.arc(
       player.x + Math.cos(player.angle - 0.55) * eyeOffset,
       player.y + bob + Math.sin(player.angle - 0.55) * eyeOffset,
-      2.7,
-      0,
-      Math.PI * 2
+      2.7, 0, Math.PI * 2
     );
     ctx.arc(
       player.x + Math.cos(player.angle + 0.55) * eyeOffset,
       player.y + bob + Math.sin(player.angle + 0.55) * eyeOffset,
-      2.7,
-      0,
-      Math.PI * 2
+      2.7, 0, Math.PI * 2
     );
     ctx.fill();
 
@@ -1380,8 +1622,10 @@ function drawGame() {
       const muzzleY = player.y + bob + Math.sin(player.angle) * (weaponLength + 3);
 
       ctx.save();
-      ctx.shadowColor = player.weapon === "shotgun" ? "rgba(255,220,120,1)" : "rgba(135,247,255,1)";
-      ctx.shadowBlur = 22;
+      if (!IS_TOUCH) {
+        ctx.shadowColor = player.weapon === "shotgun" ? "rgba(255,220,120,1)" : "rgba(135,247,255,1)";
+        ctx.shadowBlur = 22;
+      }
       ctx.fillStyle = player.weapon === "shotgun" ? "#ffe39d" : "#bffcff";
       ctx.beginPath();
       ctx.arc(muzzleX, muzzleY, player.weapon === "shotgun" ? 7 : 5, 0, Math.PI * 2);
@@ -1420,9 +1664,52 @@ function drawVignette() {
   gradient.addColorStop(1, "rgba(0,0,0,0.55)");
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, cw, ch);
+
+  if (game.player) {
+    const hpRatio = game.player.health / game.player.maxHealth;
+    if (hpRatio < 0.35) {
+      const pulse = 0.12 + Math.sin(performance.now() * 0.02) * 0.05;
+      ctx.fillStyle = `rgba(255, 40, 40, ${pulse})`;
+      ctx.fillRect(0, 0, cw, ch);
+    }
+  }
+
+  if (game.bossRef && game.zombies.includes(game.bossRef)) {
+    const pulse = 0.08 + Math.sin(performance.now() * 0.01) * 0.03;
+    ctx.fillStyle = `rgba(180, 40, 255, ${pulse})`;
+    ctx.fillRect(0, 0, cw, ch);
+  }
 }
 
 function drawCrosshair() {
+  if (IS_TOUCH && game.player) {
+    const distance = 120;
+    const cx = game.player.x + Math.cos(game.player.angle) * distance - game.camera.x;
+    const cy = game.player.y + Math.sin(game.player.angle) * distance - game.camera.y;
+    const pulse = 1 + Math.sin(performance.now() * 0.01) * 0.06;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.strokeStyle = "rgba(220,250,255,0.95)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-10 * pulse, 0);
+    ctx.lineTo(-3, 0);
+    ctx.moveTo(10 * pulse, 0);
+    ctx.lineTo(3, 0);
+    ctx.moveTo(0, -10 * pulse);
+    ctx.lineTo(0, -3);
+    ctx.moveTo(0, 10 * pulse);
+    ctx.lineTo(0, 3);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, 0, 2.2, 0, Math.PI * 2);
+    ctx.fillStyle = "#d6fbff";
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+
   const mx = clamp(input.mouseX, 0, cw);
   const my = clamp(input.mouseY, 0, ch);
   const pulse = 1 + Math.sin(performance.now() * 0.01) * 0.06;
@@ -1448,16 +1735,15 @@ function drawCrosshair() {
   ctx.arc(0, 0, 2.2, 0, Math.PI * 2);
   ctx.fillStyle = input.mouseDown ? "#ffe99e" : "#d6fbff";
   ctx.fill();
-
   ctx.restore();
 }
 
 function drawMinimap() {
   if (!game.player) return;
 
-  const size = Math.min(190, Math.max(130, cw * 0.14));
-  const x = cw - size - 18;
-  const y = ch - size - 18;
+  const size = IS_TOUCH ? 112 : Math.min(180, Math.max(128, cw * 0.13));
+  const x = cw - size - 12;
+  const y = IS_TOUCH ? 74 : 14;
   const sx = size / WORLD_W;
   const sy = size / WORLD_H;
 
@@ -1489,7 +1775,6 @@ function drawMinimap() {
   ctx.beginPath();
   ctx.arc(x + game.player.x * sx, y + game.player.y * sy, 3.5, 0, Math.PI * 2);
   ctx.fill();
-
   ctx.restore();
 }
 
@@ -1565,6 +1850,124 @@ document.getElementById("menuBtn").addEventListener("click", returnToMenu);
 
 playerNameInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") startGame();
+});
+
+weaponButtons.forEach((btn) => {
+  btn.addEventListener("click", () => useWeapon(btn.dataset.weapon));
+  btn.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    useWeapon(btn.dataset.weapon);
+  }, { passive: false });
+});
+
+mobilePauseBtn.addEventListener("click", () => {
+  if (game.state !== "start") togglePause();
+});
+
+mobilePauseBtn.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  if (game.state !== "start") togglePause();
+}, { passive: false });
+
+mobileFireBtn.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  input.fireButtonHeld = true;
+  input.mobileFire = true;
+  mobileFireBtn.classList.add("active");
+}, { passive: false });
+
+mobileFireBtn.addEventListener("touchend", (e) => {
+  e.preventDefault();
+  input.fireButtonHeld = false;
+  input.mobileFire = input.rightStick.active;
+  mobileFireBtn.classList.remove("active");
+}, { passive: false });
+
+mobileFireBtn.addEventListener("touchcancel", (e) => {
+  e.preventDefault();
+  input.fireButtonHeld = false;
+  input.mobileFire = input.rightStick.active;
+  mobileFireBtn.classList.remove("active");
+}, { passive: false });
+
+function setStickVisual(stickEl, x, y, maxRadius) {
+  stickEl.style.transform = `translate(${x * maxRadius}px, ${y * maxRadius}px)`;
+}
+
+function setupVirtualStick(zoneEl, stickEl, stickState, onUpdate) {
+  const maxRadius = 38;
+
+  function getLocalPos(touch) {
+    const rect = zoneEl.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    let dx = touch.clientX - centerX;
+    let dy = touch.clientY - centerY;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist > maxRadius) {
+      dx = (dx / dist) * maxRadius;
+      dy = (dy / dist) * maxRadius;
+    }
+
+    return {
+      x: dx / maxRadius,
+      y: dy / maxRadius
+    };
+  }
+
+  zoneEl.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    if (stickState.active) return;
+    const touch = e.changedTouches[0];
+    stickState.active = true;
+    stickState.id = touch.identifier;
+    const pos = getLocalPos(touch);
+    stickState.x = pos.x;
+    stickState.y = pos.y;
+    setStickVisual(stickEl, stickState.x, stickState.y, maxRadius);
+    if (onUpdate) onUpdate(true);
+  }, { passive: false });
+
+  zoneEl.addEventListener("touchmove", (e) => {
+    if (!stickState.active) return;
+    for (const touch of e.changedTouches) {
+      if (touch.identifier === stickState.id) {
+        e.preventDefault();
+        const pos = getLocalPos(touch);
+        stickState.x = pos.x;
+        stickState.y = pos.y;
+        setStickVisual(stickEl, stickState.x, stickState.y, maxRadius);
+        if (onUpdate) onUpdate(true);
+        break;
+      }
+    }
+  }, { passive: false });
+
+  function endStick(e) {
+    if (!stickState.active) return;
+    for (const touch of e.changedTouches) {
+      if (touch.identifier === stickState.id) {
+        e.preventDefault();
+        stickState.active = false;
+        stickState.id = null;
+        stickState.x = 0;
+        stickState.y = 0;
+        setStickVisual(stickEl, 0, 0, maxRadius);
+        if (onUpdate) onUpdate(false);
+        break;
+      }
+    }
+  }
+
+  zoneEl.addEventListener("touchend", endStick, { passive: false });
+  zoneEl.addEventListener("touchcancel", endStick, { passive: false });
+}
+
+setupVirtualStick(leftJoystick, leftStickEl, input.leftStick, null);
+
+setupVirtualStick(rightPad, rightStickEl, input.rightStick, (active) => {
+  input.mobileFire = active || input.fireButtonHeld;
 });
 
 buildMap();
